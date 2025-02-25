@@ -1,13 +1,21 @@
 package service
 
 import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"time"
+
+	"github.com/shahar3/trip-planning-service/config"
+	"github.com/shahar3/trip-planning-service/constants"
 	"github.com/shahar3/trip-planning-service/models"
+	"github.com/shahar3/trip-planning-service/pkg/kafka"
 	"github.com/shahar3/trip-planning-service/repository"
 )
 
 // TripService defines the business logic interface for trip operations.
 type TripService interface {
-	CreateTrip(trip *models.Trip) error
+	CreateTrip(trip *models.PlanningForm) error
 	GetTrip(id string) (*models.Trip, error)
 	UpdateTrip(trip *models.Trip) error
 	DeleteTrip(id string) error
@@ -15,39 +23,41 @@ type TripService interface {
 
 // tripServiceImpl is a concrete implementation of TripService.
 type tripServiceImpl struct {
-	repo repository.TripRepository
+	repo        repository.TripRepository
+	kafkaClient *kafka.Client
 }
 
 // NewTripService creates a new TripService instance.
-func NewTripService(repo repository.TripRepository) TripService {
+func NewTripService(repo repository.TripRepository, cfg *config.Config) TripService {
+	kafkaInstance := kafka.NewKafkaClient([]string{cfg.Kafka.Broker}, constants.TripPlanningKafkaTopic)
 	return &tripServiceImpl{
-		repo: repo,
+		repo:        repo,
+		kafkaClient: kafkaInstance,
 	}
 }
 
 // CreateTrip creates a new trip. If the planning method is "ai",
 // it calls the AI service to generate an itinerary and then updates the trip.
-func (s *tripServiceImpl) CreateTrip(trip *models.Trip) error {
-	// Persist the trip in the repository.
-	if err := s.repo.CreateTrip(trip); err != nil {
-		return err
+func (s *tripServiceImpl) CreateTrip(form *models.PlanningForm) error {
+	if form.PlanningMethod == constants.PlanningMethodAi {
+		// Marshal the form to JSON and send to the AI service
+		payload, err := json.Marshal(form)
+		if err != nil {
+			return fmt.Errorf("failed to marshal planning form: %w", err)
+		}
+
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+		if err := s.kafkaClient.SendMessage(ctx, []byte(constants.TripPlanningKafkaTopic), payload); err != nil {
+			return fmt.Errorf("failed to send message to AI service: %w", err)
+		}
+
+		return nil
+	} else if form.PlanningMethod == constants.PlanningMethodManual {
+		return nil
 	}
 
-	// If the user chose AI-driven planning, delegate to the AI service.
-	//if trip.PlanningMethod == "ai" && s.aiClient != nil {
-	//	itinerary, err := s.aiClient.GenerateItinerary(trip)
-	//	if err != nil {
-	//		return fmt.Errorf("failed to generate itinerary: %w", err)
-	//	}
-	//	trip.Itinerary = itinerary
-	//
-	//	// Update the trip with the generated itinerary.
-	//	if err := s.repo.UpdateTrip(trip); err != nil {
-	//		return fmt.Errorf("failed to update trip with itinerary: %w", err)
-	//	}
-	//}
-
-	return nil
+	return fmt.Errorf("unknown planning method: %s", form.PlanningMethod)
 }
 
 // GetTrip retrieves a trip by its ID.

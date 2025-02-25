@@ -9,11 +9,12 @@ import (
 	"github.com/shahar3/trip-planning-service/handlers"
 	"github.com/shahar3/trip-planning-service/repository"
 	"github.com/shahar3/trip-planning-service/routes"
+	"github.com/shahar3/trip-planning-service/service"
 )
 
 func main() {
 	// Load configuration
-	cfg, err := config.LoadConfig(".")
+	cfg, err := config.LoadConfig()
 	if err != nil {
 		log.Fatalf("Error loading config: %v", err)
 	}
@@ -30,7 +31,8 @@ func main() {
 
 	// Initialize in-memory repository and trip handler
 	tripRepo := repository.NewInMemoryTripRepository()
-	tripHandler := handlers.NewTripHandler(tripRepo)
+	tripService := service.NewTripService(tripRepo, &cfg)
+	tripHandler := handlers.NewTripHandler(tripService)
 
 	// Setup API routes
 	routes.SetupRoutes(router, tripHandler)

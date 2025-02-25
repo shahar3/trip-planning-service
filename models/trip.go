@@ -17,11 +17,17 @@ type PlanningForm struct {
 	StartDate       string     `json:"startDate"`
 	EndDate         string     `json:"endDate"`
 	Duration        int        `json:"duration"`
-	BudgetLevel     string     `json:"budgetLevel"`
-	TravelIntensity string     `json:"travelIntensity"`
-	Interests       []string   `json:"interests"`
+	BudgetLevel     string     `json:"budgetLevel,omitempty"`
+	TravelIntensity string     `json:"travelIntensity,omitempty"`
+	Interests       []string   `json:"interests,omitempty"`
 }
 
 type Location struct {
-	Value string `json:"value"`
+	ID           string `json:"id"`
+	Name         string `json:"name"`
+	LocationType string `json:"locationType"`
+	Country      string `json:"country,omitempty"`
+	Latitude     string `json:"latitude"`
+	Longitude    string `json:"longitude"`
+	Emoji        string `json:"emoji,omitempty"`
 }

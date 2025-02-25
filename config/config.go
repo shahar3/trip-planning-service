@@ -2,32 +2,45 @@ package config
 
 import (
 	"log"
+	"os"
 	"time"
 
 	"github.com/spf13/viper"
 )
 
-type Config struct {
-	Port         string        `mapstructure:"PORT"`
-	Env          string        `mapstructure:"ENV"`
-	ReadTimeout  time.Duration `mapstructure:"READ_TIMEOUT"`
-	WriteTimeout time.Duration `mapstructure:"WRITE_TIMEOUT"`
+// KafkaConfig holds Kafka-related settings.
+type KafkaConfig struct {
+	Broker string `mapstructure:"broker"`
 }
 
-func LoadConfig(path string) (config Config, err error) {
-	viper.AddConfigPath(path)
-	viper.SetConfigFile(".env")
+type Config struct {
+	Port         string        `mapstructure:"port"`
+	Env          string        `mapstructure:"env"`
+	ReadTimeout  time.Duration `mapstructure:"read_timeout"`
+	WriteTimeout time.Duration `mapstructure:"write_timeout"`
+	Kafka        KafkaConfig   `mapstructure:"kafka"`
+}
+
+func LoadConfig() (config Config, err error) {
 	viper.AutomaticEnv()
 
-	// Set defaults
-	viper.SetDefault("PORT", "8081")
-	viper.SetDefault("ENV", "development")
-	viper.SetDefault("READ_TIMEOUT", "5s")
-	viper.SetDefault("WRITE_TIMEOUT", "10s")
-
-	if err = viper.ReadInConfig(); err != nil {
-		log.Printf("No config file found: %v", err)
+	// Get environment mode from ENV variable (default: "development")
+	env := os.Getenv("ENV")
+	if env == "" {
+		env = "development"
 	}
+
+	// Set the config file based on environment
+	configFile := env + ".yaml"
+	viper.SetConfigName(configFile)
+	viper.SetConfigType("yaml")
+	viper.AddConfigPath("config") // Add current directory
+
+	// Read YAML file
+	if err := viper.ReadInConfig(); err != nil {
+		log.Printf("Warning: No config file found: %v", err)
+	}
+
 	err = viper.Unmarshal(&config)
 	return config, err
 }

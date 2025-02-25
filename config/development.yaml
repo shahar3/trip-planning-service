@@ -1,0 +1,6 @@
+port: 8082
+env: development
+read_timeout: 5s
+write_timeout: 10s
+kafka:
+  broker: localhost:9092
